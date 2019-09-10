@@ -1,0 +1,148 @@
+*&---------------------------------------------------------------------*
+*& Report  ZEJERCICIO_8
+*&
+*&---------------------------------------------------------------------*
+*Ejercicio 8. (2 horas) (HECHO POR SEBASTIAN)
+*Realizar un reporte con el comando WRITE para listar todas las compañías con todos sus vuelos,
+*mostrando el origen y el destino.
+*En la pantalla de selección se deberá tener un rango para filtrar por número de vuelo (SPFLI-CONNID).
+**Acceder a la tabla SPFLI con CONNID = rango de selección de la pantalla de selección y recuperar:
+*Carrid (Compañía)
+*Connid (Numero de vuelo)
+*Cityfrom (Ciudad de origen)
+*Cityto (ciudad destino)
+**Con todas las entradas recuperadas en la selección anterior, acceder a la tabla SCARR con:
+*Carrid = SPFLI-carrid
+*Y recuperar:
+*carrid (Compañía)
+*carrname (Nombre de la compañía).
+*Con los resultados obtenidos armar la tabla final, recorriendo la tabla obtenida en el primer acceso y
+*leyendo los datos faltantes de la segunda tabla.
+*Los datos a mostrar deberán estar ordenados por compañía.
+*Luego mostrar la tabla final recorriéndola y usando el comando WRITE.
+*PD: Existe posibilidad de mejorar el rendimiento del programa? Como??
+*&---------------------------------------------------------------------*
+
+REPORT  ZEJERCICIO_8.
+
+************************************************************************
+* Definición de tablas del sistema                                     *
+************************************************************************
+TABLES: spfli.
+
+************************************************************************
+* Definición de tablas internas                                        *
+************************************************************************
+TYPES: BEGIN OF t_spfli,
+        carrid   TYPE s_carr_id,
+        connid   TYPE s_conn_id,
+        cityfrom TYPE s_from_cit,
+        cityto   TYPE s_to_city,
+       END OF t_spfli,
+
+       BEGIN OF t_scarr,
+        carrid   TYPE s_carr_id,
+        carrname TYPE s_carrname,
+       END OF t_scarr,
+
+       BEGIN OF t_salida,
+        carrid   TYPE s_carr_id,
+        connid   TYPE s_conn_id,
+        cityfrom TYPE s_from_cit,
+        cityto   TYPE s_to_city,
+        carrname TYPE s_carrname,
+       END OF t_salida.
+
+************************************************************************
+* Definición de estructuras                                            *
+************************************************************************
+DATA: r_spfli  TYPE t_spfli,
+      r_scarr  TYPE t_scarr,
+      r_salida TYPE t_salida.
+
+************************************************************************
+* Definición de tablas internas                                        *
+************************************************************************
+DATA: i_spfli  TYPE TABLE OF t_spfli,
+      i_scarr  TYPE TABLE OF t_scarr,
+      i_salida TYPE TABLE OF t_salida.
+
+************************************************************************
+* Definición de pantalla de selección                                  *
+************************************************************************
+SELECT-OPTIONS: so_conid FOR spfli-connid.
+
+************************************************************************
+*                                                                      *
+*                       LOGICA DEL PROGRAMA                            *
+*                                                                      *
+************************************************************************
+
+***Consulta a BBDD SIN JOIN.-> Se utiliza el FOR ALL ENTRIES.
+SELECT carrid   "Compañía
+       connid   "Numero de vuelo
+       cityfrom "Ciudad de origen
+       cityto   "ciudad destino
+  FROM spfli
+  INTO TABLE i_spfli
+  WHERE connid IN so_conid.
+
+IF sy-subrc EQ 0.
+  SELECT carrid   "Compañía
+         carrname "Nombre de la compañía
+    FROM scarr
+    INTO TABLE i_scarr
+    FOR ALL ENTRIES IN i_spfli
+    WHERE carrid EQ i_spfli-carrid.
+
+  IF sy-subrc EQ 0.
+    WRITE: /, 'Consulta a BBDD SIN JOIN:'.
+    PERFORM f_salida.
+  ENDIF.
+ENDIF.
+*&---------------------------------------------------------------------*
+*&      Form  F_SALIDA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+form F_SALIDA .
+
+  "Se ordenan las tablas por el campo principal que las une.
+  SORT: i_spfli BY carrid,
+        i_scarr BY carrid.
+
+  LOOP AT i_spfli INTO r_spfli.
+
+    CLEAR: r_scarr.
+    READ TABLE i_scarr INTO r_scarr
+         WITH KEY carrid = r_spfli-carrid
+                  BINARY SEARCH.
+
+    IF sy-subrc EQ 0.
+      r_salida-carrname = r_scarr-carrname.
+    ENDIF.
+
+    r_salida-carrid   = r_spfli-carrid.
+    r_salida-connid   = r_spfli-connid.
+    r_salida-cityfrom = r_spfli-cityfrom.
+    r_salida-cityto   = r_spfli-cityto.
+
+    APPEND r_salida TO i_salida.
+    CLEAR: r_salida.
+
+  ENDLOOP.
+
+    LOOP AT i_salida INTO r_salida.
+
+    WRITE: / '|', r_salida-carrid,
+             '|', r_salida-connid,
+             '|', r_salida-cityfrom,
+             '|', r_salida-cityto,
+             '|', r_salida-carrname..
+
+  ENDLOOP.
+
+endform.                    " F_SALIDA
