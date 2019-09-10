@@ -1,0 +1,177 @@
+*Ejercicio 9: Consulta a 3 tablas (2 horas)
+*Realizar un reporte con el comando WRITE para listar todas las compañías con todos sus vuelos, con su
+*fecha, precio, moneda, ciudad origen, ciudad destino y el Nombre de una compañía aérea.
+*La pantalla de selección tendrá los siguientes filtros:
+*Rango de fechas (SFLIGHT-FLDATE)
+*Rango de precios (SFLIGHT-PRICE)
+** Acceder a la tabla SFLIGHT con FLDATE = rango pantalla de selección, PRICE = rango pantalla de
+*selección.
+*Y recuperar:
+*CARRID (Denominación breve de la compañía aérea)
+*CONNID (Código de conexión de vuelo directo)
+*FLDATE (Fecha de vuelo)
+*PRICE (Precio del vuelo)
+*CURRENCY (Moneda local de la compañía aérea)
+** Luego con los resultados obtenidos en la selección anterior acceder a la tabla SPFLI con:
+*CARRID = SFLIGHT- CARRID y CONNID = SFLIGHT- CONNID
+*Y recuperar:
+*CARRID (Denominación breve de la compañía aérea)
+*CONNID (Código de conexión de vuelo directo)
+*CITYFROM (Ciudad de salida)
+*CITYTO (Ciudad de llegada)
+** Luego con los resultados obtenidos en la primera selección acceder a la tabla SCARR con:
+*CARRID = SFLIGHT- CARRID
+*Y recuperar:
+*CARRID (Denominación breve de la compañía aérea)
+*CARRNAME (Nombre de una compañía aérea)
+*Luego completar la tabla principal recorriendo la primera y leyendo las otras en cada iteración.
+
+*&---------------------------------------------------------------------*
+*& Report  Z_EJ9_ANTO
+*&---------------------------------------------------------------------*
+REPORT  z_ej9_anto.
+*&---------------------------------------------------------------------*
+*& TABLES
+*&---------------------------------------------------------------------*
+TABLES: sflight.
+*&---------------------------------------------------------------------*
+*& TYPES
+*&---------------------------------------------------------------------*
+TYPES: BEGIN OF ty_sflight,
+        carrid   TYPE sflight-carrid,
+        connid   TYPE sflight-connid,
+        fldate   TYPE sflight-fldate,
+        price    TYPE sflight-price,
+        currency TYPE sflight-currency,
+  END OF ty_sflight,
+
+      BEGIN OF ty_spfli,
+        carrid   TYPE spfli-carrid,
+        connid   TYPE spfli-connid,
+        cityfrom TYPE spfli-cityfrom,
+        cityto   TYPE spfli-cityto,
+END OF ty_spfli,
+
+      BEGIN OF ty_scarr,
+        carrid   TYPE scarr-carrid,
+        carrname TYPE scarr-carrname,
+END OF ty_scarr,
+
+      BEGIN OF ty_tabsal,
+        carrid   TYPE sflight-carrid,
+        connid   TYPE sflight-connid,
+        fldate   TYPE sflight-fldate,
+        price    TYPE sflight-price,
+        currency TYPE sflight-currency,
+        cityfrom TYPE spfli-cityfrom,
+        cityto   TYPE spfli-cityto,
+        carrname TYPE scarr-carrname,
+END OF ty_tabsal.
+
+*&---------------------------------------------------------------------*
+*& DATA
+*&---------------------------------------------------------------------*
+DATA: wa_sflight TYPE ty_sflight,
+      wa_spfli TYPE ty_spfli,
+      wa_scarr TYPE ty_scarr,
+      wa_tabsal TYPE ty_tabsal,
+      it_sflight TYPE TABLE OF ty_sflight,
+      it_spfli TYPE TABLE OF ty_spfli,
+      it_scarr TYPE TABLE OF ty_scarr,
+      it_tabsal TYPE TABLE OF ty_tabsal.
+*&---------------------------------------------------------------------*
+*& SELECT-OPTIONS
+*&---------------------------------------------------------------------*
+SELECT-OPTIONS: so_price FOR sflight-price,
+                so_date FOR sflight-fldate.
+*&---------------------------------------------------------------------*
+*& SELECTS / EN ESTE CASO SON TRES.
+*&---------------------------------------------------------------------*
+SELECT carrid connid fldate price currency
+  FROM sflight
+  INTO TABLE it_sflight
+  WHERE price IN so_price AND fldate IN so_date.
+
+IF sy-subrc = 0.
+  SORT it_sflight BY carrid connid.
+
+  SELECT carrid connid cityfrom cityto
+    FROM spfli
+    INTO TABLE it_spfli
+    FOR ALL ENTRIES IN it_sflight
+    WHERE carrid = it_sflight-carrid AND connid = it_sflight-connid.
+
+  IF sy-subrc = 0.
+    SORT it_spfli BY carrid connid.
+  ENDIF.
+
+  SELECT carrid carrname
+    FROM scarr
+    INTO TABLE it_scarr
+    FOR ALL ENTRIES IN it_sflight
+    WHERE carrid = it_sflight-carrid.
+
+  IF sy-subrc = 0.
+    SORT it_scarr BY carrid.
+  ENDIF.
+
+  PERFORM f_form1.
+
+ENDIF.
+*&---------------------------------------------------------------------*
+*&      Form  F_FORM1
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM f_form1 .
+
+  SORT: it_spfli BY carrid,
+        it_scarr BY carrid.
+
+  LOOP AT it_sflight INTO wa_sflight.
+
+    CLEAR wa_spfli.
+
+    READ TABLE it_spfli INTO wa_spfli
+    WITH KEY carrid = wa_sflight-carrid
+             connid = wa_sflight-connid
+             BINARY SEARCH.
+
+    IF sy-subrc = 0.
+      wa_tabsal-cityfrom = wa_spfli-cityfrom.
+      wa_tabsal-cityto = wa_spfli-cityto.
+    ENDIF.
+    READ TABLE it_scarr INTO wa_scarr
+    WITH KEY carrid = wa_sflight-carrid
+             BINARY SEARCH.
+
+    IF sy-subrc = 0.
+      wa_tabsal-carrname = wa_scarr-carrname.
+    ENDIF.
+
+    wa_tabsal-carrid   = wa_sflight-carrid.
+    wa_tabsal-connid   = wa_sflight-connid.
+    wa_tabsal-fldate   = wa_sflight-fldate.
+    wa_tabsal-price    = wa_sflight-price.
+    wa_tabsal-currency = wa_sflight-currency.
+
+    APPEND wa_tabsal TO it_tabsal.
+    CLEAR: wa_tabsal.
+  ENDLOOP.
+
+  LOOP AT it_tabsal INTO wa_tabsal.
+
+    WRITE: / '|', wa_tabsal-carrid,
+             '|', wa_tabsal-connid,
+             '|', wa_tabsal-fldate,
+             '|', wa_tabsal-price CURRENCY wa_tabsal-currency,
+             '|', wa_tabsal-cityfrom,
+             '|', wa_tabsal-cityto,
+             '|', wa_tabsal-carrname.
+
+    AT END OF connid. "hace lineas al final del campo elegido
+      ULINE.
+    ENDAT.
