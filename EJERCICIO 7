@@ -1,0 +1,81 @@
+Ejercicio 7: (1 horas) HECHO POR SEBASTIAN
+El cliente necesita poder visualizar un listado de todos sus clientes y poder verificar las observaciones que
+fueron cargadas para cada uno. Por lo que solicita la construcción de un reporte WRITE con una pantalla
+de selección que contenga un filtro por cliente e indica los campos que desea visualizar.
+Para ello realizar lo siguiente:
+Se deberán listar los datos de la tabla Z_CLIENTES_APELLIDOALUMNO (tabla creada en el ejercicio 1),
+mostrando: cliente, razón social y, en caso de haber, la descripción de las observaciones.
+Dicha lista debe estar ordenada por número de cliente (campo kunnr).
+En la pantalla de selección se deberá tener un rango para filtrar por número de cliente (kunnr).
+* Acceder a la tabla Z_CLIENTES_APELLIDOALUMNO (donde APELLIDOALUMNO sea el apellido del
+alumno que desarrolla el ejercicio y que fue creada con anterioridad) con kunnr = rango de selección por
+pantalla y recuperar:
+Kunnr (cliente)
+Razón (razón social)
+Observaciones (observaciones)
+Si se recuperan datos, se debe ordenar la tabla por kunnr (cliente).
+De lo contrario, mostrar un mensaje indicando que no se obtuvieron clientes con esa selección.
+* Se debe recorrer la tabla con los datos obtenidos en la selección anterior y se deben cargar los datos a
+la salida por medio de la sentencia write.
+El orden de los mismos es: | Cliente | Razón social | Observaciones|
+
+*&---------------------------------------------------------------------*
+*& Report  ZEJERCICIO_7
+*&---------------------------------------------------------------------*
+
+REPORT  zejercicio_7 LINE-SIZE 105.
+************************************************************************
+* Definición de tablas del sistema                                     *
+************************************************************************
+TABLES: zclientes_acc.
+
+************************************************************************
+* Definición de tablas internas                                        *
+************************************************************************
+TYPES: BEGIN OF ty_clientes,
+        kunnr      TYPE kunnr,
+        razon      TYPE char35,
+        zobservcli TYPE zobservcli_acc,
+       END OF ty_clientes,
+
+       ity_clientes TYPE TABLE OF ty_clientes.
+
+************************************************************************
+* Definición de estructuras                                            *
+************************************************************************
+DATA: wa_clientes TYPE ty_clientes.
+************************************************************************
+* Definición de tablas internas                                        *
+************************************************************************
+DATA: it_clientes TYPE ity_clientes,
+      it_clientes2 TYPE TABLE OF ty_clientes.
+
+************************************************************************
+* Pantalla de selección                                                *
+************************************************************************
+SELECT-OPTIONS: s_kunnr FOR zclientes_acc-kunnr.
+
+SELECT kunnr razon zobservcli
+       FROM zclientes_acc
+       INTO TABLE it_clientes
+       WHERE kunnr IN s_kunnr.
+       
+IF sy-subrc = 0.
+  SORT it_clientes BY kunnr.
+
+  LOOP AT  it_clientes INTO wa_clientes.
+
+    WRITE: '|',
+           wa_clientes-kunnr,
+           '|',
+           wa_clientes-razon,
+           '|',
+            wa_clientes-zobservcli,
+           '|',
+           /.
+
+  ENDLOOP.
+  ULINE.
+ELSE.
+  WRITE: /, 'No hay datos'.
+ENDIF.
