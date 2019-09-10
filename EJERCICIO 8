@@ -1,7 +1,3 @@
-*&---------------------------------------------------------------------*
-*& Report  ZEJERCICIO_8
-*&
-*&---------------------------------------------------------------------*
 *Ejercicio 8. (2 horas) (HECHO POR SEBASTIAN)
 *Realizar un reporte con el comando WRITE para listar todas las compañías con todos sus vuelos,
 *mostrando el origen y el destino.
@@ -22,8 +18,15 @@
 *Luego mostrar la tabla final recorriéndola y usando el comando WRITE.
 *PD: Existe posibilidad de mejorar el rendimiento del programa? Como??
 *&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*& Report  ZEJERCICIO_8
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
 
-REPORT  ZEJERCICIO_8.
+REPORT  zejercicio_8.
 
 ************************************************************************
 * Definición de tablas del sistema                                     *
@@ -100,6 +103,27 @@ IF sy-subrc EQ 0.
     PERFORM f_salida.
   ENDIF.
 ENDIF.
+
+CLEAR: r_salida,
+       i_salida.
+
+***Consulta a BBDD CON JOIN.
+SELECT spfli~carrid   "Compañía
+       spfli~connid   "Numero de vuelo
+       spfli~cityfrom "Ciudad de origen
+       spfli~cityto   "ciudad destino
+       scarr~carrname "Nombre de la compañía
+  FROM spfli
+  INNER JOIN scarr
+    ON spfli~carrid EQ scarr~carrid
+  INTO TABLE i_salida
+  WHERE spfli~connid IN so_conid.
+
+IF sy-subrc EQ 0.
+  WRITE: /, 'Consulta a BBDD CON JOIN:'.
+  PERFORM f_salida_join.
+ENDIF.
+
 *&---------------------------------------------------------------------*
 *&      Form  F_SALIDA
 *&---------------------------------------------------------------------*
@@ -108,7 +132,7 @@ ENDIF.
 *  -->  p1        text
 *  <--  p2        text
 *----------------------------------------------------------------------*
-form F_SALIDA .
+FORM f_salida .
 
   "Se ordenan las tablas por el campo principal que las une.
   SORT: i_spfli BY carrid,
@@ -135,7 +159,7 @@ form F_SALIDA .
 
   ENDLOOP.
 
-    LOOP AT i_salida INTO r_salida.
+  LOOP AT i_salida INTO r_salida.
 
     WRITE: / '|', r_salida-carrid,
              '|', r_salida-connid,
@@ -145,4 +169,25 @@ form F_SALIDA .
 
   ENDLOOP.
 
-endform.                    " F_SALIDA
+ENDFORM.                    " F_SALIDA
+*&---------------------------------------------------------------------*
+*&      Form  F_SALIDA_JOIN
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM f_salida_join .
+
+  SORT: i_salida BY carrid.
+
+  LOOP AT i_salida INTO r_salida.
+    WRITE: / '|', r_salida-carrid,
+             '|', r_salida-connid,
+             '|', r_salida-cityfrom,
+             '|', r_salida-cityto,
+             '|', r_salida-carrname.
+  ENDLOOP.
+
+ENDFORM.                    " F_SALIDA_JOIN
