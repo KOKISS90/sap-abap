@@ -1,0 +1,120 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_EJ_ALV_ANTO
+*&---------------------------------------------------------------------*
+REPORT  z_ej_alv_anto.
+*&---------------------------------------------------------------------*
+*& EJERCICIO 7 USANDO TABLA ZCLIENTES_ACC / ACLARAMOS QUE TABLA USAREMOS
+*&---------------------------------------------------------------------*
+TABLES: zclientes_acc.
+TYPE-POOLS: slis.
+*&---------------------------------------------------------------------*
+*& DEFINICION DE TABLAS INTERNAS / PONEMOS LOS CAMPOS QUE VAMOS A UTILIZAR
+*&---------------------------------------------------------------------*
+TYPES: BEGIN OF ty_clientes,
+          kunnr TYPE kunnr,
+          razon TYPE c LENGTH 30,
+          zobservcli TYPE zobservcli_acc,
+  END OF ty_clientes.
+TYPES  ity_clientes  TYPE TABLE OF ty_clientes.
+*&---------------------------------------------------------------------*
+*& DATA - VARIABLES - TABLAS
+*&---------------------------------------------------------------------*
+DATA: wa_clientes TYPE ty_clientes,
+      it_clientes TYPE ity_clientes,
+      wa_layout   TYPE slis_layout_alv,
+      it_fieldcat TYPE slis_t_fieldcat_alv,
+      wa_fieldcat TYPE slis_fieldcat_alv.
+*&---------------------------------------------------------------------*
+*&SELECT-OPTIONS / PANTALLA DE SELECCION
+*&---------------------------------------------------------------------*
+SELECT-OPTIONS: so_kunnr FOR zclientes_acc-kunnr.
+*&---------------------------------------------------------------------*
+*&SELECT
+*&---------------------------------------------------------------------*
+SELECT kunnr razon zobservcli
+       FROM zclientes_acc
+       INTO TABLE it_clientes
+       WHERE kunnr IN so_kunnr.
+*&---------------------------------------------------------------------*
+*& ALV ALV ALV ALV ALV ALV ALV ALV ALV ALV ALV ALV ALV ALV ALV ALV ALV
+*&---------------------------------------------------------------------*
+
+IF sy-subrc = 0.
+
+  wa_layout-zebra = 'X'.
+
+  wa_fieldcat-fieldname = 'KUNNR'.
+  wa_fieldcat-tabname = 'IT_CLIENTES'.
+  wa_fieldcat-seltext_s = 'KUNNR1'.
+  wa_fieldcat-seltext_m = 'KUNNR2'.
+  wa_fieldcat-seltext_l = 'KUNNR3'.
+  wa_fieldcat-outputlen = 30.
+  wa_fieldcat-just = 'C'.
+
+  APPEND wa_fieldcat TO it_fieldcat.
+  CLEAR wa_fieldcat.
+
+  wa_fieldcat-fieldname = 'RAZON'.
+  wa_fieldcat-tabname = 'IT_CLIENTES'.
+  wa_fieldcat-seltext_s = 'RAZON'.
+  wa_fieldcat-seltext_m = 'RAZON'.
+  wa_fieldcat-seltext_l = 'RAZON'.
+  wa_fieldcat-outputlen = 50.
+  wa_fieldcat-just = 'C'.
+
+  APPEND wa_fieldcat TO it_fieldcat.
+  CLEAR wa_fieldcat.
+
+  wa_fieldcat-fieldname = 'ZOBSERVCLI'.
+  wa_fieldcat-tabname = 'IT_CLIENTES'.
+  wa_fieldcat-seltext_s = 'ZOBSERVCLI'.
+  wa_fieldcat-seltext_m = 'ZOBSERVCLI'.
+  wa_fieldcat-seltext_l = 'ZOBSERVCLI'.
+  wa_fieldcat-outputlen = 50.
+  wa_fieldcat-just = 'C'.
+
+  APPEND wa_fieldcat TO it_fieldcat.
+  CLEAR wa_fieldcat.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program = sy-repid
+      is_layout          = wa_layout
+      it_fieldcat        = it_fieldcat
+    TABLES
+      t_outtab           = it_clientes
+    EXCEPTIONS
+      program_error      = 1
+      OTHERS             = 2.
+
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+
+
+ELSE.
+  WRITE: 'NO HAY DATOS'.
+ENDIF.
+
+
+
+*IF sy-subrc = 0.
+*                wa_spfli-countryfr,
+*                wa_spfli-cityfrom,
+*                wa_spfli-airpfrom,
+*                wa_spfli-countryto,
+*                wa_spfli-cityto,
+*                wa_spfli-airpto,
+*                wa_spfli-fltime,
+*                wa_spfli-deptime,
+*                wa_spfli-arrtime,
+*                wa_spfli-distance,
+*                wa_spfli-distid,
+*                wa_spfli-fltype,
+*                wa_spfli-period.
+*  ENDLOOP.
+*
+*  CLEAR: wa_spfli.
+*
+*ENDIF.
