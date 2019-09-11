@@ -90,7 +90,7 @@ FORM f_config_fieldcats .
   wa_fieldcat-seltext_s = 'CLIENTE'.    "Nombre del Campo Small
   wa_fieldcat-seltext_m = 'NUM CLIENTE'.    "Nombre del Campo Medium
   wa_fieldcat-seltext_l = 'NUMERO DE CLIENTE'.    "Nombre del Campo Large
-  wa_fieldcat-outputlen = 40.   "Opcional Cantidad de Campos de la Columna
+  wa_fieldcat-outputlen = 20.   "Opcional Cantidad de Campos de la Columna
   wa_fieldcat-just = 'C'.        "Opcional Justificacion del Texto c = centered
 
   APPEND wa_fieldcat TO it_fieldcat.     "No Cambia
@@ -112,7 +112,7 @@ FORM f_config_fieldcats .
   wa_fieldcat-seltext_s = 'PEDIDO'.    "Nombre del Campo Small
   wa_fieldcat-seltext_m = 'NUM PEDIDO'.    "Nombre del Campo Medium
   wa_fieldcat-seltext_l = 'NUMERO DE PEDIDO'.    "Nombre del Campo Large
-  wa_fieldcat-outputlen = 40.   "Opcional Cantidad de Campos de la Columna
+  wa_fieldcat-outputlen = 15.   "Opcional Cantidad de Campos de la Columna
   wa_fieldcat-just = 'C'.        "Opcional Justificacion del Texto c = centered
 
   APPEND wa_fieldcat TO it_fieldcat.     "No Cambia
@@ -134,7 +134,7 @@ FORM f_config_fieldcats .
   wa_fieldcat-seltext_s = 'ENTREG'.    "Nombre del Campo Small
   wa_fieldcat-seltext_m = 'ENTREGADO'.    "Nombre del Campo Medium
   wa_fieldcat-seltext_l = 'ENTREGADO SI/NO'.    "Nombre del Campo Large
-  wa_fieldcat-outputlen = 40.   "Opcional Cantidad de Campos de la Columna
+  wa_fieldcat-outputlen = 10.   "Opcional Cantidad de Campos de la Columna
   wa_fieldcat-just = 'C'.        "Opcional Justificacion del Texto c = centered
 
   APPEND wa_fieldcat TO it_fieldcat.     "No Cambia
