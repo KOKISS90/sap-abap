@@ -1,0 +1,45 @@
+*&---------------------------------------------------------------------*
+*&  Include           Z_EJ11_ANTO_TOP
+*&---------------------------------------------------------------------*
+TABLES: zpedidos,
+        zclientes.
+*&---------------------------------------------------------------------*
+*&  TYPES
+*&---------------------------------------------------------------------*
+TYPE-POOLS slis.
+
+TYPES: BEGIN OF ty_clientes,
+         kunnr TYPE zclientes-kunnr,
+         razon TYPE zclientes-razon,
+       END OF ty_clientes,
+
+       BEGIN OF ty_pedidos,
+         kunnr TYPE zpedidos-kunnr,
+         pedido TYPE zpedidos-pedido,
+         direccion TYPE zpedidos-direccion,
+         entrega TYPE zpedidos-entrega,
+       END OF ty_pedidos,
+
+       BEGIN OF ty_tablita,
+         kunnr TYPE zclientes-kunnr,
+         razon TYPE zclientes-razon,
+         pedido TYPE zpedidos-pedido,
+         direccion TYPE zpedidos-direccion,
+         entrega TYPE zpedidos-entrega,
+       END OF ty_tablita.
+*&---------------------------------------------------------------------*
+*&  DATA
+*&---------------------------------------------------------------------*
+DATA: it_pedidos TYPE TABLE OF ty_pedidos,
+      it_clientes TYPE TABLE OF ty_clientes,
+      wa_pedidos TYPE ty_pedidos,
+      wa_clientes TYPE ty_clientes,
+      it_tablita TYPE TABLE OF ty_tablita,
+      wa_tablita TYPE ty_tablita.
+
+DATA: v_cruz TYPE C LENGTH 1. "VARIABLE DEL RADIO BUTTON
+
+* DECLARACIONES DEL ALV
+DATA: wa_layout TYPE slis_layout_alv,
+    it_fieldcat TYPE slis_t_fieldcat_alv,
+    wa_fieldcat TYPE slis_fieldcat_alv.
