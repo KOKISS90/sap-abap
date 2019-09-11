@@ -1,0 +1,95 @@
+*Ejercicio 11. (2 horas)
+*El cliente solicita tener un reporte donde pueda ver los todos los pedidos que tienen sus clientes y poder a
+*su vez visualizar cuales están pendientes de entrega.
+*Para ello se necesita crear un reporte ALV GRID cuya pantalla de selección contenga:
+* Select option: S_KUNNR (obligatorio)
+* Radio button: RB_ENTREGADO (cuya descripción será “Entregado” y “Pendiente de entrega”
+*
+** Acceder a la tabla Z_CLIENTES_APELLIDOALUMNO (donde APELLIDOALUMNO sea el apellido del
+*alumno que desarrolla el ejercicio y que fue creada con anterioridad) con kunnr igual a S_KUNNR y
+*recuperar:
+*Kunnr (cliente)
+*Razón (razón social)
+** Con los resultados obtenidos(si se obtuvieron) acceder a la tabla Z_PEDIDOS_APELLIDOALUMNO
+*(donde APELLIDOALUMNO sea el apellido del alumno que desarrolla el ejercicio y que fue creada con
+*anterioridad) con:
+*KUNNR = Z_CLIENTES_APELLIDOALUMNO-KUNNR
+*ENTREGADO = (X o espacio según el radio button que se haya elegido en la pantalla de selección.)
+*Y recuperar:
+*Kunnr (Cliente)
+*Pedido (Pedido)
+*Direccion (Dirección de entrega)
+*Entregado (Entregado)
+*
+*Ordenar ambas tablas. La tabla Z_CLIENTES_APELLIDOALUMNO por cliente (kunnr), mientras que la
+*tabla Z_PEDIDOS_ APELLIDOALUMNO se debe ordenar por cliente y pedido (kunnr, pedido). Se bererá ir
+*llenando una tabla interna I_ALV que contendrá los datos a mostrar. La tabla interna tendrá los
+*siguientes campos:
+*I_ALV :
+* KUNNR (cliente)
+* Razón (razón social)
+* Pedido (Pedido)
+* Direccion (Dirección de entrega)
+* Entregado (Entregado)
+*
+*Recorrer la tabla Z_CLIENTES_APELLIDOALUMNO:
+** Llenar los campos KUNNR y RAZON de una estructura llamada R_ALV
+**Recorrer la tabla Z_PEDIDOS_APELLIDOALUMNO donde kunnr =
+*Z_CLIENTES_APELLIDOALUMNO-KUNNR
+*Llenar los campos PEDIDO , DIRECCION y ENTREGADO de la estructura R_ALV
+**Antes de pasar a la siguiente iteración del loop se debe apendear R_ALV a la tabla interna
+*I_ALV
+*Mostrar la tabla I_ALV con un ALV GRID ordenado por kunnr y pedido.
+
+*&---------------------------------------------------------------------*
+*& Report  Z_ACC_TEST_11
+*&---------------------------------------------------------------------*
+REPORT  zejercicio11.
+
+************************************************************************
+* Declaración de includes                                              *
+************************************************************************
+INCLUDE ZEJERCICIO11_TOP.
+INCLUDE ZEJERCICIO11_F01.
+************************************************************************
+*                                                                      *
+*                       LOGICA DEL PROGRAMA                            *
+*                                                                      *
+************************************************************************
+************************************************************************
+* Definición de inicializaciones ( INITIALIZATION )                    *
+************************************************************************
+
+
+************************************************************************
+* Validaciones de los parámetros de entrada                            *
+************************************************************************
+*Hay dos formas de verificar que un parametro de la pantalla de seleccion sea obligatiro.
+*1- Agregando el comando OBLIGATORY (ver include TOP) o,
+*2- Por codigo, comprobando si el campo es inicial. Esta ultima forma de hace en el evento AT SELECTION-SCREEN.
+*   Es la mas recomendable por temas de restricciones y comportamientos de las pantallas.
+*   Ademas de que permite personalizar el mensaje a mostrar.
+
+AT SELECTION-SCREEN.
+  IF so_kunnr[] IS INITIAL.
+    MESSAGE e000(zescuelita) WITH text-003.
+  ENDIF.
+
+************************************************************************
+* Proceso principal ( START-OF-SELECTION )                             *
+************************************************************************
+START-OF-SELECTION.
+  IF rb_listo EQ dc_x.
+    v_entregado = dc_x.
+  ELSE.
+    v_entregado = space.
+  ENDIF.
+
+  PERFORM f_obtencion_datos.
+  PERFORM f_datos_salida.
+
+************************************************************************
+* Acciones de final de proceso ( END-OF-SELECTION )                    *
+************************************************************************
+END-OF-SELECTION.
+  PERFORM f_alv_salida.
