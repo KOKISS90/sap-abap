@@ -1,0 +1,41 @@
+
+
+FORM f_config_fieldcats .
+
+  wa_layout-zebra = 'X'.
+  wa_layout-colwidth_optimize = 'X'.
+  wa_layout-window_titlebar = ''.
+
+
+
+  wa_fieldcat-fieldname = 'KUNNR'.                "Nombre del Campo (en mayusculas)
+  wa_fieldcat-tabname = 'IT_TABLITA'.             "Nombre de la Tabla a Mostrar (en mayusculas)
+  wa_fieldcat-seltext_s = 'CLIENTE'.              "Nombre del Campo Small
+  wa_fieldcat-seltext_m = 'NUM CLIENTE'.          "Nombre del Campo Medium
+  wa_fieldcat-seltext_l = 'NUMERO DE CLIENTE'.    "Nombre del Campo Large
+  wa_fieldcat-outputlen = 20.                     "Opcional Cantidad de Campos de la Columna
+  wa_fieldcat-just = 'C'.                         "Opcional Justificacion del Texto c = centered
+
+  APPEND wa_fieldcat TO it_fieldcat.     "No Cambiar
+  CLEAR wa_fieldcat.
+
+ENDFORM.
+
+FORM f_mostrar_alv .
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program = sy-repid     "No Cambiar
+      is_layout          = wa_layout    "No Cambiar
+      it_fieldcat        = it_fieldcat  "No Cambiar
+    TABLES
+      t_outtab           = it_tablita        "Nombre de la Tabla a Mostrar
+    EXCEPTIONS
+      program_error      = 1            "No Cambiar
+      OTHERS             = 2.           "No Cambiar
+  IF sy-subrc <> 0.
+ MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+         WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  ENDIF.
+
+ENDFORM.
