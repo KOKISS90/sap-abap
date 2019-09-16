@@ -1,0 +1,560 @@
+*&---------------------------------------------------------------------*
+*& Report  zejercicio_12_v2_agv
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT y_pruebas_agv_2.
+*
+* Ejecutar programa para actualizar información de materiales utilizando
+* dos metodologías diferentes, mediante BAPI o mediante BI.
+*
+* TEST DATA: Generar un file de datos con esta estructura.
+* Material number; Material Description; Status; Valid Date (DD.MM.YYYY)
+*
+* LOGICA:
+* Leer el archivo, volcarlo en una estructura formateada.
+* Deacuerdo al Radio Button ejecutar de la siguiente forma:
+* BATCH INPUT:
+* Si la fecha leida del file es menor al día de hoy entonces mapeo el campo descripción.
+* Si la fecha es mas grande, entonces lo que mapeo es el Status.
+*
+* BAPI: Solo mapeo para actualizar la descripción del material.
+*
+* Mostrar el impacto del update llamando una bapi para mostrar por ALV.
+*
+**********************************************************************
+
+
+TYPE-POOLS: slis.
+
+TABLES: mara.
+
+************************************************************************
+* Structures
+************************************************************************
+TYPES: BEGIN OF t_file,
+         matnr TYPE mara-matnr, " Material number
+         maktx TYPE makt-maktx, " Material Description
+         mstae TYPE mara-mstae, " Status
+         mstde TYPE mara-mstde, " Valid Date
+         msg   TYPE string,     " Msg from BI (OK / NO) Esto se rellena con el resultado del BI o BAPI
+       END OF t_file.
+
+TYPES: BEGIN OF t_alv,
+         matnr TYPE mara-matnr, " Material Number
+         desc  TYPE makt-maktx, " Material Description
+         msg   TYPE string,     " Msg from BI (OK / NO) Esto se rellena con el resultado del BI o BAPI
+       END OF t_alv.
+
+TYPES: BEGIN OF t_bapi,
+         matnr TYPE mara-matnr, " Material Number
+         desc  TYPE bapimatdoa-matl_desc, " Material Description
+       END OF t_bapi.
+
+
+************************************************************************
+* Internal Tables
+************************************************************************
+DATA: it_file         TYPE TABLE OF t_file,
+      it_file_txt     TYPE TABLE OF string,
+      it_bdcdata      TYPE TABLE OF bdcdata,
+      it_bdc_msg      TYPE TABLE OF bdcmsgcoll,
+      it_fieldcat     TYPE slis_t_fieldcat_alv,
+      it_materialdesc TYPE TABLE OF bapi_makt,
+      it_alv          TYPE TABLE OF t_alv,
+      it_bapi         TYPE TABLE OF t_bapi,
+      it_filetable    TYPE filetable.
+
+************************************************************************
+* Global Variables
+************************************************************************
+DATA: wa_file         TYPE t_file,
+      wa_file_txt     TYPE string,
+      wa_bdcdata      TYPE bdcdata,
+      wa_bdc_msg      TYPE bdcmsgcoll,
+      wa_mt_data      TYPE bapimatdoa,
+      wa_fieldcat     TYPE slis_fieldcat_alv,
+      wa_layout       TYPE slis_layout_alv,
+      wa_bapi         TYPE t_bapi,
+      wa_alv          TYPE t_alv,
+      wa_headdata     TYPE bapimathead,
+      wa_return       TYPE bapiret2,
+      wa_materialdesc TYPE bapi_makt,
+      v_return        TYPE i.
+
+
+************************************************************************
+*SELECTION SCREEN
+************************************************************************
+SELECTION-SCREEN BEGIN OF BLOCK b0 WITH FRAME TITLE TEXT-001.
+
+PARAMETERS: p_file TYPE string.
+
+PARAMETERS: rb_bi   RADIOBUTTON GROUP g1 DEFAULT 'X',
+            rb_bapi RADIOBUTTON GROUP g1.
+
+SELECTION-SCREEN END OF BLOCK b0.
+
+
+
+* 2ND PART OF EXERCISE
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-002.
+
+SELECT-OPTIONS:
+            s_matnr FOR mara-matnr NO INTERVALS.
+
+PARAMETERS: p_lang TYPE sy-langu.
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+
+
+***********************************************************************
+* Event: AT SELECTION-SCREEN
+***********************************************************************
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
+
+  CALL METHOD cl_gui_frontend_services=>file_open_dialog
+    EXPORTING
+      window_title            = 'Select File'
+      default_extension       = '.txt'
+    CHANGING
+      file_table              = it_filetable
+      rc                      = v_return
+    EXCEPTIONS
+      file_open_dialog_failed = 1
+      cntl_error              = 2
+      error_no_gui            = 3
+      not_supported_by_gui    = 4
+      OTHERS                  = 5.
+  IF sy-subrc = 0.
+    CLEAR p_file.
+    READ TABLE it_filetable INTO p_file INDEX 1.
+    IF sy-subrc NE 0.
+      CLEAR p_file.
+    ENDIF.
+  ENDIF.
+
+
+
+************************************************************************
+* Event: START-OF-SELECTION
+************************************************************************
+START-OF-SELECTION.
+
+* Aca leo el file desde mi PC y lo guardo en it_file_txt.
+  PERFORM f_leer_file_txt.
+
+* Uso it_file_txt para ejecutar el BI y rellenar it_file.
+  IF rb_bi IS NOT INITIAL.
+* Uso BI para actualizar la descripcion de los materiales.
+    PERFORM f_ejecutar_batchinput.
+
+  ELSE.
+* Uso BAPI para actualizar la descripcion de los materiales.
+    PERFORM f_actualizar_desc_bapi.
+
+  ENDIF.
+
+* Llamo a la bapi y relleno it_bapi con #matnr + desc
+  PERFORM f_llamar_bapi_description.
+
+  PERFORM f_rellenar_tabla_alv.
+
+
+***********************************************************************
+* Event: END-OF-SELECTION
+***********************************************************************
+END-OF-SELECTION.
+
+  PERFORM f_mostrar_alv.
+
+
+
+************************************************************************
+* FORMS DEFINITION
+************************************************************************
+
+*&---------------------------------------------------------------------*
+*&      Form  F_LEER_FILE_TXT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM f_leer_file_txt .
+
+  CALL METHOD cl_gui_frontend_services=>gui_upload
+    EXPORTING
+      filename                = p_file
+      filetype                = 'ASC'
+    CHANGING
+      data_tab                = it_file_txt
+    EXCEPTIONS
+      file_open_error         = 1
+      file_read_error         = 2
+      no_batch                = 3
+      gui_refuse_filetransfer = 4
+      invalid_type            = 5
+      no_authority            = 6
+      unknown_error           = 7
+      bad_data_format         = 8
+      header_not_allowed      = 9
+      separator_not_allowed   = 10
+      header_too_long         = 11
+      unknown_dp_error        = 12
+      access_denied           = 13
+      dp_out_of_memory        = 14
+      disk_full               = 15
+      dp_timeout              = 16
+      not_supported_by_gui    = 17
+      error_no_gui            = 18
+      OTHERS                  = 19.
+
+  IF sy-subrc NE 0.
+    REFRESH it_file_txt.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  F_EJECUTAR_BATCHINPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM f_ejecutar_batchinput .
+
+  DATA: lv_date_s   TYPE string,
+        lv_date     TYPE sy-datum,
+        lv_year(4)  TYPE c,
+        lv_month(2) TYPE c,
+        lv_day(2)   TYPE c.
+
+  LOOP AT it_file_txt INTO wa_file_txt.
+
+    SPLIT wa_file_txt
+    AT ';'
+    INTO wa_file-matnr
+         wa_file-maktx
+         wa_file-mstae
+         lv_date_s.
+
+    lv_year = lv_date_s+6(4).
+    lv_month = lv_date_s+3(2).
+    lv_day = lv_date_s(2).
+
+    CONCATENATE lv_year
+                lv_month
+                lv_day
+           INTO lv_date.
+
+    wa_file-mstde = lv_date.
+
+    REFRESH it_bdcdata.
+    PERFORM f_rellenar_tabla_bdcdata USING:
+            'X' 'SAPLMGMM'  '0060',
+
+            ' ' 'BDC_CURSOR'  'RMMG1-MATNR',
+            ' ' 'BDC_OKCODE'  '=AUSW',
+            ' ' 'RMMG1-MATNR' wa_file-matnr,
+            'X' 'SAPLMGMM'  '0070',
+
+            ' ' 'BDC_CURSOR'  'MSICHTAUSW-DYTXT(01)',
+            ' ' 'BDC_OKCODE'  '=ENTR',
+            ' ' 'MSICHTAUSW-KZSEL(01)'  'X',
+            'X' 'SAPLMGMM'  '4004',
+
+            ' ' 'BDC_OKCODE'  '=BABA',
+            ' ' 'BDC_SUBSCR'  'SAPLMGMM     2004TABFRA1',
+            ' ' 'BDC_SUBSCR'  'SAPLMGD1     1002SUB1'.
+
+
+    IF lv_date < sy-datum.
+      PERFORM f_rellenar_tabla_bdcdata USING:
+            ' ' 'MAKT-MAKTX'  wa_file-maktx.
+    ENDIF.
+
+    PERFORM f_rellenar_tabla_bdcdata USING:
+         ' ' 'BDC_SUBSCR'  'SAPLMGD1     2001SUB2',
+         ' ' 'BDC_CURSOR'  'MARA-MSTDE'.
+
+
+    IF lv_date > sy-datum.
+      PERFORM f_rellenar_tabla_bdcdata USING:
+       ' ' 'MARA-MSTAE'  wa_file-mstae,
+       ' ' 'MARA-MSTDE'  lv_date_s. "wa_file-mstde.
+    ENDIF.
+
+    PERFORM f_rellenar_tabla_bdcdata USING:
+    ' ' 'BDC_SUBSCR'  'SAPLMGD1 2561SUB3',
+    ' ' 'BDC_SUBSCR'  'SAPLMGD1 2007SUB4',
+    ' ' 'BDC_SUBSCR'  'SAPLMGD1 2005SUB5',
+    ' ' 'BDC_SUBSCR'  'SAPLMGD1 2011SUB6',
+    ' ' 'BDC_SUBSCR'  'SAPLMGD1 2033SUB7',
+    ' ' 'BDC_SUBSCR'  'SAPLMGD1 0001SUB8',
+    ' ' 'BDC_SUBSCR'  'SAPLMGD1 0001SUB9',
+    'X' 'SAPLSPO1'  '0300',
+
+    ' ' 'BDC_OKCODE'  '=YES'.
+
+    CALL TRANSACTION 'MM02' USING it_bdcdata MODE 'N' MESSAGES INTO it_bdc_msg.
+
+    LOOP AT it_bdc_msg INTO wa_bdc_msg.
+      IF wa_bdc_msg-msgtyp = 'E'.
+        wa_file-msg = 'NO'.
+      ELSE.
+        wa_file-msg = 'OK'.
+      ENDIF.
+    ENDLOOP.
+
+    APPEND wa_file TO it_file.
+
+  ENDLOOP.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  F_RELLENAR_TABLA_BDCDATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_0578   text
+*      -->P_0579   text
+*      -->P_0580   text
+*----------------------------------------------------------------------*
+FORM f_rellenar_tabla_bdcdata  USING dyn name value.
+
+  IF dyn = 'X'.
+
+    CLEAR wa_bdcdata.
+    wa_bdcdata-program = name.
+    wa_bdcdata-dynpro = value.
+    wa_bdcdata-dynbegin = 'X'.
+    APPEND wa_bdcdata TO it_bdcdata.
+
+  ELSE.
+
+    CLEAR wa_bdcdata.
+    wa_bdcdata-fnam = name.
+    wa_bdcdata-fval = value.
+    APPEND wa_bdcdata TO it_bdcdata.
+
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  F_LLAMAR_BAPI_DESCRIPTION_BI
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM f_llamar_bapi_description .
+
+  LOOP AT it_file INTO wa_file.
+
+    CALL FUNCTION 'BAPI_MATERIAL_GET_DETAIL'
+      EXPORTING
+        material              = wa_file-matnr
+      IMPORTING
+        material_general_data = wa_mt_data.
+
+    wa_bapi-matnr = wa_file-matnr.
+    wa_bapi-desc = wa_mt_data-matl_desc.
+
+    APPEND wa_bapi TO it_bapi.
+
+  ENDLOOP.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  F_RELLENAR_TABLA_ALV
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM f_rellenar_tabla_alv .
+
+  REFRESH it_alv.
+
+  LOOP AT it_file INTO wa_file.
+
+    CLEAR wa_alv.
+    wa_alv-matnr = wa_file-matnr.
+    wa_alv-msg = wa_file-msg. " OK / NO
+
+    CLEAR wa_bapi.
+    READ TABLE it_bapi INTO wa_bapi
+          WITH KEY matnr = wa_file-matnr.
+    IF sy-subrc EQ 0.
+      wa_alv-desc = wa_bapi-desc.
+    ENDIF.
+
+    APPEND wa_alv TO it_alv.
+
+  ENDLOOP.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  F_MOSTRAR_ALV
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM f_mostrar_alv .
+
+  CONSTANTS: c_mark TYPE c VALUE 'X'.
+
+  wa_layout-zebra = c_mark.
+
+  PERFORM cargafieldcat USING:
+        'matnr' 'it_alv' 'Cod. Material',
+        'desc' 'it_alv' 'Descripción',
+        'msg' 'it_alv' 'Mensaje'.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_callback_program = sy-repid
+      is_layout          = wa_layout
+      it_fieldcat        = it_fieldcat
+    TABLES
+      t_outtab           = it_alv
+    EXCEPTIONS
+      program_error      = 1
+      OTHERS             = 2.
+
+  IF sy-subrc <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+
+ENDFORM.
+
+FORM cargafieldcat USING VALUE(v1) VALUE(v2) VALUE(v3).
+
+  wa_fieldcat-fieldname = v1.
+  wa_fieldcat-tabname = v2.
+  wa_fieldcat-seltext_m = v3.
+
+  APPEND wa_fieldcat TO it_fieldcat.
+  CLEAR wa_fieldcat.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  F_ACT_DESC_BAPI
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM f_actualizar_desc_bapi .
+
+  DATA: lv_date_s   TYPE string.
+
+  LOOP AT it_file_txt INTO wa_file_txt.
+
+    CLEAR wa_file.
+    SPLIT wa_file_txt
+    AT ';'
+    INTO wa_file-matnr
+         wa_file-maktx
+         wa_file-mstae
+         lv_date_s.
+
+    REFRESH it_materialdesc.
+    CLEAR: wa_headdata,
+           wa_return.
+
+    wa_headdata-material = wa_file-matnr.
+
+    CLEAR wa_materialdesc.
+    wa_materialdesc-langu     = sy-langu.
+    wa_materialdesc-matl_desc = wa_file-maktx.
+    APPEND wa_materialdesc TO it_materialdesc.
+
+    CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
+      EXPORTING
+        headdata            = wa_headdata
+      IMPORTING
+        return              = wa_return
+      TABLES
+        materialdescription = it_materialdesc.
+
+    IF wa_return-type EQ 'S'.
+      wa_file-msg = 'OK'.
+    ELSE.
+      wa_file-msg = 'NO'.
+    ENDIF.
+
+    APPEND wa_file TO it_file.
+
+  ENDLOOP.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Form  F_LLAMAR_BAPI_DESCRIPTION_BAPI
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM f_llamar_bapi_description_bapi .
+
+  DATA: lv_date_s   TYPE string,
+        lv_date     TYPE sy-datum,
+        lv_year(4)  TYPE c,
+        lv_month(2) TYPE c,
+        lv_day(2)   TYPE c.
+
+  LOOP AT it_file_txt INTO wa_file_txt.
+
+    CLEAR wa_file.
+    SPLIT wa_file_txt
+    AT ';'
+    INTO wa_file-matnr
+         wa_file-maktx
+         wa_file-mstae
+         lv_date_s.
+
+    lv_year = lv_date_s+6(4).
+    lv_month = lv_date_s+3(2).
+    lv_day = lv_date_s(2).
+
+    CONCATENATE lv_year
+                lv_month
+                lv_day
+           INTO lv_date.
+
+    wa_file-mstde = lv_date.
+
+    CLEAR wa_mt_data.
+
+    CALL FUNCTION 'BAPI_MATERIAL_GET_DETAIL'
+      EXPORTING
+        material              = wa_file-matnr
+      IMPORTING
+        material_general_data = wa_mt_data.
+
+    wa_bapi-matnr = wa_file-matnr.
+    wa_bapi-desc = wa_mt_data-matl_desc.
+
+    APPEND wa_bapi TO it_bapi.
+
+  ENDLOOP.
+
+ENDFORM.
