@@ -32,13 +32,13 @@ DATA: it_bdc TYPE TABLE OF bdcdata,
 *LAS TABLAS QUE SE MOSTRARAN
       it_file TYPE TABLE OF ty_file,
       wa_file TYPE ty_file,
-*SE USAN PARA RESOLVER EL TEMA DEL PIPE SEPARADOR
+* PARA RESOLVER EL TEMA DEL PIPE SEPARADOR
       it_file_txt TYPE TABLE OF string,
       wa_file_txt TYPE string,
-*
+* PARA MOSTRAR MENSAJES
       it_bdc_msg TYPE TABLE OF bdcmsgcoll,
       wa_bdc_msg TYPE bdcmsgcoll,
-* MENSAJES DE ERROR
+*
       it_file_msg TYPE TABLE OF ty_file_msg,
       wa_file_msg TYPE ty_file_msg,
 * ALV
